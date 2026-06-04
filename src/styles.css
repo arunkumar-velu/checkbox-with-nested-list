@@ -1,0 +1,7 @@
+.App {
+  font-family: sans-serif;
+  text-align: left;
+  .child {
+    padding-left: 10px;
+  }
+}
