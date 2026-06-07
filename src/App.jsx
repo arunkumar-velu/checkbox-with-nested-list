@@ -1,6 +1,6 @@
 import "./styles.css";
-//import NestedCheckBox from "./NestedCheckBox";
-import NestedCheckBox from "./gemini";
+import NestedCheckBox from "./NestedCheckBox";
+//import NestedCheckBox from "./gemini";
 
 const data = [
   {

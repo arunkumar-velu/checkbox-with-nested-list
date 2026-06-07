@@ -1,123 +1,80 @@
-import { DataContext } from "./App";
 import normalizedData from "./normalizedData";
-import { useState, useMemo } from "react";
-const CheckBox = ({
-  data,
-  parent,
-  originalData,
-  selectedMap,
-  setSelectedMap,
-}) => {
-  let children = data.children;
-  const checkBoxClicked = () => {
-    const id = data.id;
-    let ids = [...selectedMap];
-    // on selecting the checkbox
-    if (!ids.includes(id)) {
-      ids.push(id);
-      ids = [...ids, ...originalData[id].childIds];
-      const parentId = originalData[id].parent;
-      const parent = originalData[parentId];
-      if (parent && parent.childIds) {
-        let selectParent = parent.childIds.every(
-          (c) => selectedMap.includes(c) || c == id
-        );
-        if (selectParent) {
-          ids.push(parentId);
-          ids.push(...parent.childIds);
-        }
-      }
-    } else {
-      // on unselecting the checkbox
-      ids = [...ids.filter((d) => d !== id)];
-      ids = [...ids.filter((e) => !originalData[id].childIds.includes(e))];
-      const parentId = originalData[id].parent;
-      const parent = originalData[parentId];
-      if (parent && parent.childIds) {
-        let isemtpy = parent.childIds.some((e) => !ids.includes(e));
-        if (isemtpy) {
-          ids = [...ids.filter((d) => d !== parentId)];
-        }
-      }
-    }
+import { useMemo, useState } from "react";
 
-    // setSelectedMap((prev) => {
-    //   if (prev.includes(id)) {
-    //     return [...prev.filter((d) => d != id)];
-    //   } else {
-    //     return [...prev, id];
-    //   }
-    // });
-    // const parentId = originalData[id].parent;
-    // const parent = originalData[parentId];
-
-    // if (parent && parent.childIds) {
-    //   console.log(parent.childIds, selectedMap);
-    //   let selectParent = parent.childIds.every(
-    //     (c) => selectedMap.includes(c) || c == id
-    //   );
-    //   console.log(selectParent);
-    //   if (selectParent) {
-    //     setSelectedMap((prev) => [...prev, parentId]);
-    //   }
-    // }
-    console.log(ids);
-    setSelectedMap(() => [...ids]);
+const CheckBox = ({ node, normalizedInfo, selectedMap, toggleSelection }) => {
+  const isSelected = selectedMap.has(node.id);
+  const onChange = () => {
+    toggleSelection(node);
   };
-  const isChecked = useMemo(() => {
-    console.log(selectedMap);
-    return selectedMap.includes(data.id);
-  }, [selectedMap]);
   return (
-    <div>
-      <input
-        type="checkbox"
-        onChange={checkBoxClicked}
-        checked={isChecked}
-        data-id={data.id}
-      />
-      <label> {data.label}</label>
-      <div className="child">
-        {children?.map((c) => {
+    <div className="children">
+      <label>
+        <input type="checkbox" checked={isSelected} onChange={onChange} />
+        {node.label}
+      </label>
+      {node.children &&
+        node.children.map((child) => {
           return (
-            <div key={c.label}>
-              <CheckBox
-                data={c}
-                originalData={originalData}
-                selectedMap={selectedMap}
-                setSelectedMap={setSelectedMap}
-              />
-            </div>
+            <CheckBox
+              key={child.label}
+              node={child}
+              normalizedInfo={normalizedInfo}
+              selectedMap={selectedMap}
+              toggleSelection={toggleSelection}
+            />
           );
         })}
-      </div>
     </div>
   );
 };
 
-const getChildren = (data, parent = null) => {
-  const chidren = Object.entries(data).filter((ele) => {
-    return ele[1].parent == parent;
-  });
-  return chidren;
-};
 const NestedCheckBox = ({ data }) => {
-  const normalisedData = normalizedData(data);
-  const [selectedMap, setSelectedMap] = useState([]);
+  const [selectedMap, setSelectedMap] = useState(() => new Set());
+  const normalizedInfo = useMemo(() => normalizedData(data));
+  const toggleSelection = (node) => {
+    setSelectedMap((prevSet) => {
+      const newSet = new Set(prevSet);
+      if (newSet.has(node.id)) {
+        newSet.delete(node.id);
+      } else {
+        newSet.add(node.id);
+      }
+      const toggleDesentChild = (tNode) => {
+        tNode.children &&
+          tNode.children.forEach((cNode) => {
+            newSet.has(tNode.id)
+              ? newSet.add(cNode.id)
+              : newSet.delete(cNode.id);
+            cNode.children && toggleDesentChild(cNode);
+          });
+      };
+      toggleDesentChild(node);
+      let parent = normalizedInfo[node.id].parent;
+      while (parent) {
+        let isAllChecked = normalizedInfo[parent]?.childIds?.every((child) =>
+          newSet.has(child)
+        );
+        if (isAllChecked) {
+          newSet.add(parent);
+        } else {
+          newSet.delete(parent);
+        }
+        parent = normalizedInfo[parent].parent;
+      }
+      return newSet;
+    });
+  };
   return (
     <>
-      {data.map((ele) => {
-        return (
-          <div key={ele.label}>
-            <CheckBox
-              data={ele}
-              originalData={normalisedData}
-              selectedMap={selectedMap}
-              setSelectedMap={setSelectedMap}
-            />
-          </div>
-        );
-      })}
+      {data.map((node) => (
+        <CheckBox
+          node={node}
+          key={node.label}
+          normalizedInfo={normalizedInfo}
+          selectedMap={selectedMap}
+          toggleSelection={toggleSelection}
+        />
+      ))}
     </>
   );
 };
